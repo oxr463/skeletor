@@ -1,6 +1,16 @@
 STATIC_LINKING := 0
 AR             := ar
 
+ifneq ($(V),1)
+   Q := @
+endif
+
+ifneq ($(SANITIZER),)
+   CFLAGS   := -fsanitize=$(SANITIZER) $(CFLAGS)
+   CXXFLAGS := -fsanitize=$(SANITIZER) $(CXXFLAGS)
+   LDFLAGS  := -fsanitize=$(SANITIZER) $(LDFLAGS)
+endif
+
 ifeq ($(platform),)
 platform = unix
 ifeq ($(shell uname -a),)
@@ -28,7 +38,6 @@ endif
 else ifneq ($(findstring MINGW,$(shell uname -a)),)
 	system_platform = win
 endif
-
 
 CORE_DIR    += .
 TARGET_NAME := skeleton
@@ -108,8 +117,10 @@ endif
 LDFLAGS += $(LIBM)
 
 ifeq ($(DEBUG), 1)
-   CXXFLAGS += -O0 -g
+   CFLAGS += -O0 -g -DDEBUG
+   CXXFLAGS += -O0 -g -DDEBUG
 else
+   CFLAGS += -O3
    CXXFLAGS += -O3
 endif
 
@@ -126,14 +137,18 @@ $(TARGET): $(OBJECTS)
 ifeq ($(STATIC_LINKING), 1)
 	$(AR) rcs $@ $(OBJECTS)
 else
-	$(CXX) $(fpic) $(SHARED) $(INCLUDES) -o $@ $(OBJECTS) $(LDFLAGS)
+	@$(if $(Q), $(shell echo echo LD $@),)
+	$(Q)$(CXX) $(fpic) $(SHARED) $(INCLUDES) -o $@ $(OBJECTS) $(LDFLAGS)
 endif
 
 %.o: %.c
-	$(CXX) $(CXXFLAGS) $(fpic) -c -o $@ $<
+	@$(if $(Q), $(shell echo echo CC $<),)
+	$(Q)$(CXX) $(CFLAGS) $(fpic) -c -o $@ $<
 
 clean:
 	rm -f $(OBJECTS) $(TARGET)
 
 .PHONY: clean
 
+print-%:
+	@echo '$*=$($*)'
